@@ -1,13 +1,13 @@
 // Component for dragging and dropping images which will be sent to ML Model for detection
 "use client"
 import LeafSVG from "@/components/assets/Leaf"
-import { Button } from "@/components/ui/button"
-import { ChangeEvent, FormEvent, useState } from "react"
-import { useToast } from "@/components/ui/use-toast"
-import Image from "next/image"
-import { useQuery } from "@tanstack/react-query"
 import Result from "@/components/result"
+import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/ui/use-toast"
 import { ReloadIcon } from "@radix-ui/react-icons"
+import { useQuery } from "@tanstack/react-query"
+import Image from "next/image"
+import { ChangeEvent, FormEvent, useState } from "react"
 
 interface FormData {
   images: (string | ArrayBuffer | null)[]
@@ -18,11 +18,19 @@ export function ImageBox() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [formData, setFormData] = useState<FormData[]>([])
   const [imageURL, setImageURL] = useState<string>()
+  const [base64Image, setBase64Image] = useState<string>("")
   const { toast } = useToast()
 
   function onImageUpload(e: ChangeEvent<HTMLInputElement>) {
     if (!e.target.files || !e.target.files[0]) return
     setImageFile(e.target.files[0] ?? null)
+    const reader = new FileReader()
+    reader.onloadend = function () {
+      const imageBase64 = reader.result as string
+      setBase64Image(imageBase64.split("base64,")[1])
+      // console.log("RESULT", imageBase64.split("base64,")[1])
+    }
+    reader.readAsDataURL(e.target.files[0])
     toast({
       variant: "success",
       title: "Image Uploaded",
@@ -35,17 +43,17 @@ export function ImageBox() {
     queryKey: ["plantData"],
     enabled: false,
     queryFn: () =>
-      fetch(
-        "https://plant.id/api/v3/health_assessment?language=en&details=local_name,description,url,treatment,classification,common_names,cause",
-        {
-          method: "POST",
-          headers: {
-            "Api-Key": process.env.NEXT_PUBLIC_PLANT_ID_API_KEY!,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(formData[0]),
-        }
-      ).then((res) => res.json()),
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/predict`, {
+        method: "POST",
+        headers: {
+          // "Api-Key": process.env.NEXT_PUBLIC_PLANT_ID_API_KEY!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          image: base64Image,
+        }),
+      }).then((res) => res.json()),
+    // .then((res) => console.log(res)),
   })
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
